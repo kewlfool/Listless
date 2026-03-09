@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { HomeMode, List, Note, ThemeMode, TimeReminder, ViewMode } from '../types/models';
+import type { HomeMode, List, Note, ThemeMode, TimeReminder, TimelessChimeMode, ViewMode } from '../types/models';
 import { sortListData } from '../utils/sort';
 import { extractNoteTitle } from '../utils/noteTitle';
 
@@ -134,6 +134,12 @@ const LIST_VIEW_MODE_KEY = 'viewMode';
 const NOTE_VIEW_MODE_KEY = 'noteViewMode';
 const HOME_MODE_KEY = 'homeMode';
 const THEME_MODE_KEY = 'themeMode';
+const TIMELESS_CHIME_MODE_KEY = 'timelessChimeMode';
+const TIMELESS_CHIME_FROM_HOUR_KEY = 'timelessChimeFromHour';
+const TIMELESS_CHIME_TILL_HOUR_KEY = 'timelessChimeTillHour';
+const TIMELESS_CHIME_ENABLED_KEY = 'timelessChimeEnabled';
+const TIMELESS_CHIME_RANDOM_MINUTE_1_KEY = 'timelessChimeRandomMinute1';
+const TIMELESS_CHIME_RANDOM_MINUTE_2_KEY = 'timelessChimeRandomMinute2';
 
 const parseViewMode = (value: string): ViewMode | null => {
   if (value === 'card' || value === 'list' || value === 'preview') {
@@ -146,6 +152,43 @@ const parseViewMode = (value: string): ViewMode | null => {
 const parseThemeMode = (value: string): ThemeMode | null => {
   if (value === 'light' || value === 'dark') {
     return value;
+  }
+
+  return null;
+};
+
+const parseTimelessChimeMode = (value: string): TimelessChimeMode | null => {
+  if (value === 'hourly' || value === 'halfHourly' || value === 'random') {
+    return value;
+  }
+
+  return null;
+};
+
+const parseIntegerInRange = (value: string, min: number, max: number): number | null => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
+
+  if (parsed < min || parsed > max) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const parseHour = (value: string): number | null => parseIntegerInRange(value, 0, 23);
+const parseRandomMinute1 = (value: string): number | null => parseIntegerInRange(value, 1, 29);
+const parseRandomMinute2 = (value: string): number | null => parseIntegerInRange(value, 30, 59);
+
+const parseBooleanString = (value: string): boolean | null => {
+  if (value === 'true') {
+    return true;
+  }
+
+  if (value === 'false') {
+    return false;
   }
 
   return null;
@@ -208,4 +251,82 @@ export const loadThemeMode = async (): Promise<ThemeMode | null> => {
 
 export const saveThemeMode = async (mode: ThemeMode): Promise<void> => {
   await db.settings.put({ key: THEME_MODE_KEY, value: mode });
+};
+
+export const loadTimelessChimeMode = async (): Promise<TimelessChimeMode | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_MODE_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseTimelessChimeMode(row.value);
+};
+
+export const saveTimelessChimeMode = async (mode: TimelessChimeMode): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_MODE_KEY, value: mode });
+};
+
+export const loadTimelessChimeFromHour = async (): Promise<number | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_FROM_HOUR_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseHour(row.value);
+};
+
+export const saveTimelessChimeFromHour = async (hour: number): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_FROM_HOUR_KEY, value: String(hour) });
+};
+
+export const loadTimelessChimeTillHour = async (): Promise<number | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_TILL_HOUR_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseHour(row.value);
+};
+
+export const saveTimelessChimeTillHour = async (hour: number): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_TILL_HOUR_KEY, value: String(hour) });
+};
+
+export const loadTimelessChimeEnabled = async (): Promise<boolean | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_ENABLED_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseBooleanString(row.value);
+};
+
+export const saveTimelessChimeEnabled = async (enabled: boolean): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_ENABLED_KEY, value: enabled ? 'true' : 'false' });
+};
+
+export const loadTimelessChimeRandomMinute1 = async (): Promise<number | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_RANDOM_MINUTE_1_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseRandomMinute1(row.value);
+};
+
+export const saveTimelessChimeRandomMinute1 = async (minute: number): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_RANDOM_MINUTE_1_KEY, value: String(minute) });
+};
+
+export const loadTimelessChimeRandomMinute2 = async (): Promise<number | null> => {
+  const row = await db.settings.get(TIMELESS_CHIME_RANDOM_MINUTE_2_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseRandomMinute2(row.value);
+};
+
+export const saveTimelessChimeRandomMinute2 = async (minute: number): Promise<void> => {
+  await db.settings.put({ key: TIMELESS_CHIME_RANDOM_MINUTE_2_KEY, value: String(minute) });
 };

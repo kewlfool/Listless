@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.deviousdesign.listless.iosdev" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Listless</name>
+    <description>
+        Listless iPhone build for local sideloading.
+    </description>
+    <author email="listless@example.com" href="https://github.com/bira/Listless">
+        Listless
+    </author>
+    <content src="index.html" />
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="AllowInlineMediaPlayback" value="true" />
+    <platform name="ios">
+        <icon src="resources/ios/icon-1024.png" />
+    </platform>
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+</widget>

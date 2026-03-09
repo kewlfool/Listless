@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+dist/
+docs/
+tsconfig.node.tsbuildinfo
+
+cordova-app/node_modules/
+cordova-app/plugins/
+cordova-app/platforms/
+cordova-app/www/*
+!cordova-app/www/.gitkeep

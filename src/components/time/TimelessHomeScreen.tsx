@@ -126,7 +126,6 @@ export const TimelessHomeScreen = (): JSX.Element => {
   const reminders = useTimeReminderStore((state) => state.reminders);
   const createReminder = useTimeReminderStore((state) => state.createReminder);
   const updateReminder = useTimeReminderStore((state) => state.updateReminder);
-  const toggleReminderCanceled = useTimeReminderStore((state) => state.toggleReminderCanceled);
   const toggleReminderCompleted = useTimeReminderStore((state) => state.toggleReminderCompleted);
   const deleteReminder = useTimeReminderStore((state) => state.deleteReminder);
 
@@ -309,12 +308,6 @@ export const TimelessHomeScreen = (): JSX.Element => {
       }
 
       setOpenRailReminderId(reminder.id);
-      return;
-    }
-
-    if (deltaX >= 58) {
-      toggleReminderCompleted(reminder.id);
-      setOpenRailReminderId(null);
       return;
     }
 
@@ -509,12 +502,12 @@ export const TimelessHomeScreen = (): JSX.Element => {
                           type="button"
                           className="timeless-reminder-cancel"
                           onClick={() => {
-                            toggleReminderCanceled(reminder.id);
+                            toggleReminderCompleted(reminder.id);
                             setOpenRailReminderId(null);
                           }}
-                          aria-label={reminder.canceled ? 'Resume reminder' : 'Cancel reminder'}
+                          aria-label={reminder.completed ? 'Mark reminder not done' : 'Mark reminder done'}
                         >
-                          {reminder.canceled ? 'Canceled' : 'Cancel'}
+                          {reminder.completed ? 'Not done' : 'Done'}
                         </button>
                       </div>
                     )}

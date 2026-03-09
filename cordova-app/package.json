@@ -1,0 +1,28 @@
+{
+  "name": "com.deviousdesign.listless.iosdev",
+  "displayName": "Listless",
+  "version": "1.0.0",
+  "description": "Listless iPhone Cordova wrapper.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ecosystem:cordova"
+  ],
+  "author": "Listless",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "cordova-ios": "^8.0.0",
+    "cordova-plugin-device": "^3.0.0",
+    "cordova-plugin-local-notification": "^1.2.3"
+  },
+  "cordova": {
+    "platforms": [
+      "ios"
+    ],
+    "plugins": {
+      "cordova-plugin-local-notification": {}
+    }
+  }
+}

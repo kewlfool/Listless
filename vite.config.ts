@@ -1,3 +1,5 @@
+import { cpSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -13,12 +15,36 @@ const navigateFallbackAllowlist =
     ? [/^\/(?:index\.html)?$/]
     : [new RegExp(`^${escapeForRegex(rootPath)}(?:\\/|\\/index\\.html)?$`)];
 
+const resolveSoundsDirectory = (): string | null => {
+  const soundsPath = resolve(process.cwd(), 'sounds');
+  if (existsSync(soundsPath)) {
+    return soundsPath;
+  }
+
+  return null;
+};
+
+const copySoundsPlugin = () => ({
+  name: 'copy-timeless-sounds',
+  apply: 'build' as const,
+  writeBundle(options: { dir?: string }) {
+    const source = resolveSoundsDirectory();
+    if (!source) {
+      return;
+    }
+
+    const targetDir = resolve(process.cwd(), options.dir ?? outDir, 'sounds');
+    cpSync(source, targetDir, { recursive: true, force: true });
+  }
+});
+
 export default defineConfig({
   base,
   build: {
     outDir
   },
   plugins: [
+    copySoundsPlugin(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

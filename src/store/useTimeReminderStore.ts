@@ -6,6 +6,12 @@ import {
   saveTimeReminders
 } from '../db/listlessDb';
 import { createId, type TimeReminder } from '../types/models';
+import {
+  ensureCordovaLocalNotificationPermission,
+  getCordovaLocalNotificationPlugin,
+  isCordovaRuntime,
+  type CordovaLocalNotificationPlugin
+} from '../utils/cordovaLocalNotifications';
 
 interface ReminderMutationResult {
   ok: boolean;
@@ -25,6 +31,74 @@ interface TimeReminderState {
 }
 
 const timers = new Map<string, number>();
+let devicereadyReminderRetryAttached = false;
+const CORDOVA_REMINDER_ID_MOD = 2000000000;
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'then' in value &&
+    typeof (value as PromiseLike<unknown>).then === 'function'
+  );
+};
+
+const reminderNotificationId = (reminderId: string): number => {
+  let hash = 7;
+  for (let index = 0; index < reminderId.length; index += 1) {
+    hash = (hash * 31 + reminderId.charCodeAt(index)) % CORDOVA_REMINDER_ID_MOD;
+  }
+
+  return Math.max(1, hash);
+};
+
+const cancelCordovaReminder = (
+  plugin: CordovaLocalNotificationPlugin | null,
+  reminderId: string
+): void => {
+  if (!plugin?.cancel) {
+    return;
+  }
+
+  try {
+    const result = plugin.cancel(reminderNotificationId(reminderId));
+    if (isPromiseLike(result)) {
+      void result.catch(() => undefined);
+    }
+  } catch {
+    // no-op
+  }
+};
+
+const scheduleCordovaReminder = (
+  plugin: CordovaLocalNotificationPlugin,
+  reminder: TimeReminder
+): void => {
+  const name = reminder.name.trim() || 'Reminder';
+  const notification = {
+    id: reminderNotificationId(reminder.id),
+    title: name,
+    text: 'Reminder time.',
+    trigger: {
+      at: new Date(reminder.fireAt)
+    },
+    iOSForeground: true,
+    data: {
+      type: 'time-reminder',
+      reminderId: reminder.id,
+      fireAt: reminder.fireAt
+    }
+  };
+
+  try {
+    const result = plugin.schedule(notification);
+    if (isPromiseLike(result)) {
+      void result.catch(() => undefined);
+    }
+  } catch {
+    // no-op
+  }
+};
 
 const sortReminders = (reminders: TimeReminder[]): TimeReminder[] => {
   return [...reminders].sort((a, b) => a.fireAt - b.fireAt || a.createdAt - b.createdAt || a.id.localeCompare(b.id));
@@ -38,68 +112,59 @@ const clearReminderTimer = (id: string): void => {
   }
 };
 
+const clearReminderSchedule = (id: string): void => {
+  clearReminderTimer(id);
+
+  if (isCordovaRuntime()) {
+    cancelCordovaReminder(getCordovaLocalNotificationPlugin(), id);
+  }
+};
+
 const clearAllReminderTimers = (): void => {
-  timers.forEach((timerId, id) => {
+  timers.forEach((timerId) => {
     window.clearTimeout(timerId);
-    timers.delete(id);
   });
+  timers.clear();
 };
 
-const canUseNotifications = (): boolean => {
-  return typeof Notification !== 'undefined';
-};
-
-const ensureNotificationPermission = async (): Promise<ReminderMutationResult> => {
-  if (typeof window !== 'undefined' && !window.isSecureContext) {
-    return {
-      ok: false,
-      message: 'Notifications require HTTPS (or localhost). Open the app on your secure deployed URL.'
-    };
-  }
-
-  if (!canUseNotifications()) {
-    return {
-      ok: false,
-      message: 'Notifications are not supported on this browser.'
-    };
-  }
-
-  if (Notification.permission === 'granted') {
-    return { ok: true };
-  }
-
-  if (Notification.permission === 'denied') {
-    return {
-      ok: false,
-      message: 'Notifications are blocked for this site. Re-enable in browser/site settings.'
-    };
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    return {
-      ok: false,
-      message: 'Notification permission was not granted.'
-    };
-  }
-
-  return { ok: true };
-};
-
-const showReminderNotification = (reminder: TimeReminder): void => {
-  if (!canUseNotifications() || Notification.permission !== 'granted') {
+const attachCordovaReminderRetry = (onReady: () => void): void => {
+  if (devicereadyReminderRetryAttached || typeof document === 'undefined') {
     return;
   }
 
-  const name = reminder.name.trim() || 'Reminder';
-  const notification = new Notification(name, {
-    body: 'Reminder time.'
-  });
+  devicereadyReminderRetryAttached = true;
+  document.addEventListener(
+    'deviceready',
+    () => {
+      devicereadyReminderRetryAttached = false;
+      onReady();
+    },
+    { once: true }
+  );
+};
 
-  notification.onclick = () => {
-    window.focus();
-    notification.close();
-  };
+const scheduleReminderCompletionTimer = (
+  reminder: TimeReminder,
+  onDue: () => void
+): void => {
+  const timeoutMs = reminder.fireAt - Date.now();
+  if (timeoutMs <= 0) {
+    return;
+  }
+
+  const timerId = window.setTimeout(onDue, timeoutMs);
+  timers.set(reminder.id, timerId);
+};
+
+const ensureNotificationPermission = async (): Promise<ReminderMutationResult> => {
+  if (!isCordovaRuntime()) {
+    return {
+      ok: false,
+      message: 'Reminders now require the iPhone native build.'
+    };
+  }
+
+  return await ensureCordovaLocalNotificationPermission(getCordovaLocalNotificationPlugin());
 };
 
 const isFutureTime = (fireAt: number): boolean => {
@@ -129,14 +194,16 @@ export const useTimeReminderStore = create<TimeReminderState>((set, get) => {
     }));
 
     clearReminderTimer(reminderId);
+    if (isCordovaRuntime()) {
+      cancelCordovaReminder(getCordovaLocalNotificationPlugin(), reminderId);
+    }
     if (nextReminder) {
       void saveTimeReminder(nextReminder);
-      showReminderNotification(nextReminder);
     }
   };
 
   const scheduleReminderTimer = (reminder: TimeReminder): void => {
-    clearReminderTimer(reminder.id);
+    clearReminderSchedule(reminder.id);
 
     if (reminder.canceled || reminder.completed) {
       return;
@@ -147,16 +214,26 @@ export const useTimeReminderStore = create<TimeReminderState>((set, get) => {
       return;
     }
 
-    const timerId = window.setTimeout(() => {
-      markReminderDoneFromTimer(reminder.id);
-    }, timeoutMs);
+    const plugin = getCordovaLocalNotificationPlugin();
+    if (!plugin) {
+      attachCordovaReminderRetry(() => {
+        get()
+          .reminders.forEach((row) => {
+            syncReminderTimer(row);
+          });
+      });
+      return;
+    }
 
-    timers.set(reminder.id, timerId);
+    scheduleCordovaReminder(plugin, reminder);
+    scheduleReminderCompletionTimer(reminder, () => {
+      markReminderDoneFromTimer(reminder.id);
+    });
   };
 
   const syncReminderTimer = (reminder: TimeReminder): void => {
     if (!isFutureTime(reminder.fireAt) || reminder.canceled || reminder.completed) {
-      clearReminderTimer(reminder.id);
+      clearReminderSchedule(reminder.id);
       return;
     }
 
@@ -326,6 +403,7 @@ export const useTimeReminderStore = create<TimeReminderState>((set, get) => {
 
             updatedReminder = {
               ...reminder,
+              canceled: false,
               completed: !reminder.completed,
               updatedAt: Date.now()
             };
@@ -349,6 +427,9 @@ export const useTimeReminderStore = create<TimeReminderState>((set, get) => {
       }));
 
       clearReminderTimer(reminderId);
+      if (isCordovaRuntime()) {
+        cancelCordovaReminder(getCordovaLocalNotificationPlugin(), reminderId);
+      }
       void removeTimeReminderFromDB(reminderId);
     }
   };

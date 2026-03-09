@@ -12,10 +12,9 @@ import { TaskRow } from './TaskRow';
 
 interface ListScreenProps {
   list: List;
-  settinglessOpen: boolean;
 }
 
-export const ListScreen = ({ list, settinglessOpen }: ListScreenProps): JSX.Element => {
+export const ListScreen = ({ list }: ListScreenProps): JSX.Element => {
   const addTask = useListStore((state) => state.addTask);
   const updateTaskTitle = useListStore((state) => state.updateTaskTitle);
   const toggleTask = useListStore((state) => state.toggleTask);
@@ -62,13 +61,11 @@ export const ListScreen = ({ list, settinglessOpen }: ListScreenProps): JSX.Elem
 
   const pinch = usePinchToOverview({
     onPinchIn: openOverview,
-    threshold: 42,
-    disabled: settinglessOpen
+    threshold: 42
   });
 
   const pullToCreate = usePullToCreate({
     threshold: 72,
-    disabled: settinglessOpen,
     onTrigger: () => {
       flushSync(() => {
         setShowPullComposer(true);

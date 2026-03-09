@@ -1,6 +1,7 @@
 export type ViewMode = 'card' | 'list' | 'preview';
 export type HomeMode = 'listless' | 'noteless' | 'timeless';
 export type ThemeMode = 'light' | 'dark';
+export type TimelessChimeMode = 'hourly' | 'halfHourly' | 'random';
 
 export interface Subtask {
   id: string;

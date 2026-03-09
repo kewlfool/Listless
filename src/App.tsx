@@ -2,17 +2,18 @@ import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { EmptyState } from './components/list/EmptyState';
 import { ListScreen } from './components/list/ListScreen';
-import { SettinglessScreen } from './components/list/SettinglessScreen';
 import { NoteEmptyState } from './components/note/NoteEmptyState';
 import { NoteScreen } from './components/note/NoteScreen';
 import { NoteOverviewScreen } from './components/overview/NoteOverviewScreen';
 import { OverviewScreen } from './components/overview/OverviewScreen';
 import { TimelessHomeScreen } from './components/time/TimelessHomeScreen';
+import { TimelessSettinglessScreen } from './components/time/TimelessSettinglessScreen';
 import { useHorizontalSwipe } from './hooks/useHorizontalSwipe';
 import { usePullToCreate } from './hooks/usePullToCreate';
 import { useHomeStore } from './store/useHomeStore';
 import { selectActiveNote, useNoteStore } from './store/useNoteStore';
 import { selectActiveList, useListStore } from './store/useListStore';
+import { useTimelessAnnouncementStore } from './store/useTimelessAnnouncementStore';
 import { useTimeReminderStore } from './store/useTimeReminderStore';
 
 const normalizeBasePath = (value: string): string => (value.endsWith('/') ? value : `${value}/`);
@@ -67,13 +68,23 @@ const AppContent = (): JSX.Element => {
   const setHomeMode = useHomeStore((state) => state.setHomeMode);
   const hydrateTimeReminders = useTimeReminderStore((state) => state.hydrate);
   const timeRemindersHydrated = useTimeReminderStore((state) => state.hydrated);
+  const hydrateTimelessAnnouncements = useTimelessAnnouncementStore((state) => state.hydrate);
+  const timelessAnnouncementsHydrated = useTimelessAnnouncementStore((state) => state.hydrated);
+  const resyncTimelessAnnouncementSchedule = useTimelessAnnouncementStore((state) => state.resyncSchedule);
+  const tickTimelessRandomHour = useTimelessAnnouncementStore((state) => state.tickRandomHour);
 
   const [startCreateDraftSeq, setStartCreateDraftSeq] = useState(0);
-  const [showListSettingless, setShowListSettingless] = useState(false);
+  const [showTimelessSettingless, setShowTimelessSettingless] = useState(false);
 
   useEffect(() => {
-    void Promise.all([hydrateLists(), hydrateNotes(), hydrateHome(), hydrateTimeReminders()]);
-  }, [hydrateHome, hydrateLists, hydrateNotes, hydrateTimeReminders]);
+    void Promise.all([
+      hydrateLists(),
+      hydrateNotes(),
+      hydrateHome(),
+      hydrateTimeReminders(),
+      hydrateTimelessAnnouncements()
+    ]);
+  }, [hydrateHome, hydrateLists, hydrateNotes, hydrateTimeReminders, hydrateTimelessAnnouncements]);
 
   useEffect(() => {
     const preventDefault = (event: Event) => {
@@ -96,10 +107,43 @@ const AppContent = (): JSX.Element => {
   }, [themeMode]);
 
   useEffect(() => {
-    if (homeMode !== 'listless' || !showListOverview) {
-      setShowListSettingless(false);
+    if (homeMode !== 'timeless') {
+      setShowTimelessSettingless(false);
     }
-  }, [homeMode, showListOverview]);
+  }, [homeMode]);
+
+  useEffect(() => {
+    const handleResync = () => {
+      resyncTimelessAnnouncementSchedule();
+    };
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        handleResync();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('resume', handleResync as EventListener);
+    document.addEventListener('deviceready', handleResync as EventListener);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('resume', handleResync as EventListener);
+      document.removeEventListener('deviceready', handleResync as EventListener);
+    };
+  }, [resyncTimelessAnnouncementSchedule]);
+
+  useEffect(() => {
+    tickTimelessRandomHour();
+    const intervalId = window.setInterval(() => {
+      tickTimelessRandomHour();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [tickTimelessRandomHour]);
 
   const listScreenKey = useMemo(() => {
     if (showListOverview) {
@@ -129,7 +173,7 @@ const AppContent = (): JSX.Element => {
     (homeMode === 'listless' && (showListOverview || lists.length === 0)) ||
     (homeMode === 'noteless' && (showNoteOverview || notes.length === 0)) ||
     homeMode === 'timeless';
-  const isMainListModeScreen = homeMode === 'listless' && showListOverview;
+  const isTimelessModeScreen = homeMode === 'timeless';
 
   const homeModeSwipe = useHorizontalSwipe({
     onSwipeLeft: () => {
@@ -156,17 +200,17 @@ const AppContent = (): JSX.Element => {
     disabled: !homeSwipeEnabled
   });
 
-  const pullToSettingless = usePullToCreate({
+  const pullToTimelessSettingless = usePullToCreate({
     threshold: 48,
     direction: 'up',
     requireEdge: false,
-    disabled: !isMainListModeScreen || showListSettingless,
+    disabled: !isTimelessModeScreen || showTimelessSettingless,
     onTrigger: () => {
-      setShowListSettingless(true);
+      setShowTimelessSettingless(true);
     }
   });
 
-  if (!listHydrated || !noteHydrated || !homeHydrated || !timeRemindersHydrated) {
+  if (!listHydrated || !noteHydrated || !homeHydrated || !timeRemindersHydrated || !timelessAnnouncementsHydrated) {
     return <main className="app-shell loading-shell">Loading...</main>;
   }
 
@@ -189,34 +233,34 @@ const AppContent = (): JSX.Element => {
       onTouchStart={(event) => {
         if (isEditableElement(document.activeElement) || isEditableElement(event.target)) {
           homeModeSwipe.onTouchCancel();
-          pullToSettingless.bind.onTouchCancel();
+          pullToTimelessSettingless.bind.onTouchCancel();
           return;
         }
 
         homeModeSwipe.onTouchStart(event);
-        if (isMainListModeScreen && event.touches.length === 1) {
-          pullToSettingless.bind.onTouchStart(event);
+        if (isTimelessModeScreen && event.touches.length === 1) {
+          pullToTimelessSettingless.bind.onTouchStart(event);
         } else {
-          pullToSettingless.bind.onTouchCancel();
+          pullToTimelessSettingless.bind.onTouchCancel();
         }
       }}
       onTouchMove={(event) => {
         if (isEditableElement(document.activeElement) || isEditableElement(event.target)) {
           homeModeSwipe.onTouchCancel();
-          pullToSettingless.bind.onTouchCancel();
+          pullToTimelessSettingless.bind.onTouchCancel();
           return;
         }
 
         homeModeSwipe.onTouchMove(event);
-        pullToSettingless.bind.onTouchMove(event);
+        pullToTimelessSettingless.bind.onTouchMove(event);
       }}
       onTouchEnd={() => {
         homeModeSwipe.onTouchEnd();
-        pullToSettingless.bind.onTouchEnd();
+        pullToTimelessSettingless.bind.onTouchEnd();
       }}
       onTouchCancel={() => {
         homeModeSwipe.onTouchCancel();
-        pullToSettingless.bind.onTouchCancel();
+        pullToTimelessSettingless.bind.onTouchCancel();
       }}
     >
       <AnimatePresence mode="wait" initial={false}>
@@ -243,7 +287,6 @@ const AppContent = (): JSX.Element => {
               <ListScreen
                 key={listScreenKey}
                 list={activeList}
-                settinglessOpen={showListSettingless}
               />
             ) : null}
           </>
@@ -272,10 +315,10 @@ const AppContent = (): JSX.Element => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showListSettingless ? (
-          <SettinglessScreen
+        {showTimelessSettingless ? (
+          <TimelessSettinglessScreen
             onClose={() => {
-              setShowListSettingless(false);
+              setShowTimelessSettingless(false);
             }}
           />
         ) : null}

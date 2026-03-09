@@ -8,7 +8,12 @@
     "build": "tsc -p tsconfig.app.json && vite build",
     "build:pages": "VITE_BASE_PATH=/Listless/ VITE_OUT_DIR=docs npm run build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "cordova:init": "bash scripts/cordova-init.sh",
+    "cordova:sync": "bash scripts/cordova-sync.sh",
+    "cordova:prepare:ios": "npm run cordova:sync && cd cordova-app && npx cordova prepare ios",
+    "cordova:build:ios": "npm run cordova:sync && cd cordova-app && npx cordova build ios --device",
+    "cordova:open:ios": "bash scripts/cordova-open-ios.sh"
   },
   "dependencies": {
     "dexie": "^4.0.8",
@@ -23,6 +28,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "cordova": "^13.0.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-pwa": "^0.20.5"
