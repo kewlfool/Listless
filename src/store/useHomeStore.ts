@@ -1,22 +1,26 @@
 import { create } from 'zustand';
-import { loadHomeMode, saveHomeMode } from '../db/listlessDb';
-import type { HomeMode } from '../types/models';
+import { loadHomeMode, loadThemeMode, saveHomeMode, saveThemeMode } from '../db/listlessDb';
+import type { HomeMode, ThemeMode } from '../types/models';
 
 interface HomeState {
   homeMode: HomeMode;
+  themeMode: ThemeMode;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setHomeMode: (mode: HomeMode) => void;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 export const useHomeStore = create<HomeState>((set) => ({
   homeMode: 'listless',
+  themeMode: 'light',
   hydrated: false,
 
   hydrate: async () => {
-    const mode = await loadHomeMode();
+    const [mode, themeMode] = await Promise.all([loadHomeMode(), loadThemeMode()]);
     set((state) => ({
       homeMode: mode ?? state.homeMode,
+      themeMode: themeMode ?? state.themeMode,
       hydrated: true
     }));
   },
@@ -24,5 +28,10 @@ export const useHomeStore = create<HomeState>((set) => ({
   setHomeMode: (mode: HomeMode) => {
     set({ homeMode: mode });
     void saveHomeMode(mode);
+  },
+
+  setThemeMode: (mode: ThemeMode) => {
+    set({ themeMode: mode });
+    void saveThemeMode(mode);
   }
 }));

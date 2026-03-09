@@ -11,6 +11,18 @@
   --radius-sm: 12px;
 }
 
+:root[data-theme='dark'] {
+  --bg: #0f141b;
+  --surface: #111a24;
+  --surface-soft: #172333;
+  --ink: #e5edf7;
+  --ink-soft: #9aa8bb;
+  --stroke: #2a3b50;
+  --stroke-strong: #36506b;
+  --accent: #8fb2d5;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -301,6 +313,91 @@ textarea {
 
 .pull-indicator.is-ready {
   color: var(--accent);
+}
+
+.settingless-screen {
+  position: fixed;
+  left: calc((100vw - min(540px, 100vw)) / 2);
+  width: min(540px, 100vw);
+  top: 0;
+  bottom: 0;
+  padding:
+    calc(env(safe-area-inset-top) + 12px)
+    12px
+    calc(env(safe-area-inset-bottom) + 14px);
+  background: var(--bg);
+  z-index: 35;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.settingless-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settingless-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.settingless-close {
+  border: 1px solid var(--stroke);
+}
+
+.settingless-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settingless-row {
+  width: 100%;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: var(--surface);
+  min-height: 48px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.settingless-row-label {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.settingless-switch {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke-strong);
+  background: var(--surface-soft);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.settingless-switch-knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ink-soft);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.settingless-switch.is-on {
+  background: rgba(77, 96, 116, 0.26);
+  border-color: var(--accent);
+}
+
+.settingless-switch.is-on .settingless-switch-knob {
+  transform: translateX(18px);
+  background: var(--accent);
 }
 
 .reminder-inline-form {

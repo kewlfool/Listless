@@ -2,12 +2,14 @@ import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { EmptyState } from './components/list/EmptyState';
 import { ListScreen } from './components/list/ListScreen';
+import { SettinglessScreen } from './components/list/SettinglessScreen';
 import { NoteEmptyState } from './components/note/NoteEmptyState';
 import { NoteScreen } from './components/note/NoteScreen';
 import { NoteOverviewScreen } from './components/overview/NoteOverviewScreen';
 import { OverviewScreen } from './components/overview/OverviewScreen';
 import { TimelessHomeScreen } from './components/time/TimelessHomeScreen';
 import { useHorizontalSwipe } from './hooks/useHorizontalSwipe';
+import { usePullToCreate } from './hooks/usePullToCreate';
 import { useHomeStore } from './store/useHomeStore';
 import { selectActiveNote, useNoteStore } from './store/useNoteStore';
 import { selectActiveList, useListStore } from './store/useListStore';
@@ -60,12 +62,14 @@ const AppContent = (): JSX.Element => {
 
   const hydrateHome = useHomeStore((state) => state.hydrate);
   const homeMode = useHomeStore((state) => state.homeMode);
+  const themeMode = useHomeStore((state) => state.themeMode);
   const homeHydrated = useHomeStore((state) => state.hydrated);
   const setHomeMode = useHomeStore((state) => state.setHomeMode);
   const hydrateTimeReminders = useTimeReminderStore((state) => state.hydrate);
   const timeRemindersHydrated = useTimeReminderStore((state) => state.hydrated);
 
   const [startCreateDraftSeq, setStartCreateDraftSeq] = useState(0);
+  const [showListSettingless, setShowListSettingless] = useState(false);
 
   useEffect(() => {
     void Promise.all([hydrateLists(), hydrateNotes(), hydrateHome(), hydrateTimeReminders()]);
@@ -86,6 +90,16 @@ const AppContent = (): JSX.Element => {
       document.removeEventListener('gestureend', preventDefault);
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (homeMode !== 'listless' || !showListOverview) {
+      setShowListSettingless(false);
+    }
+  }, [homeMode, showListOverview]);
 
   const listScreenKey = useMemo(() => {
     if (showListOverview) {
@@ -115,6 +129,7 @@ const AppContent = (): JSX.Element => {
     (homeMode === 'listless' && (showListOverview || lists.length === 0)) ||
     (homeMode === 'noteless' && (showNoteOverview || notes.length === 0)) ||
     homeMode === 'timeless';
+  const isMainListModeScreen = homeMode === 'listless' && showListOverview;
 
   const homeModeSwipe = useHorizontalSwipe({
     onSwipeLeft: () => {
@@ -141,6 +156,16 @@ const AppContent = (): JSX.Element => {
     disabled: !homeSwipeEnabled
   });
 
+  const pullToSettingless = usePullToCreate({
+    threshold: 48,
+    direction: 'up',
+    requireEdge: false,
+    disabled: !isMainListModeScreen || showListSettingless,
+    onTrigger: () => {
+      setShowListSettingless(true);
+    }
+  });
+
   if (!listHydrated || !noteHydrated || !homeHydrated || !timeRemindersHydrated) {
     return <main className="app-shell loading-shell">Loading...</main>;
   }
@@ -164,21 +189,35 @@ const AppContent = (): JSX.Element => {
       onTouchStart={(event) => {
         if (isEditableElement(document.activeElement) || isEditableElement(event.target)) {
           homeModeSwipe.onTouchCancel();
+          pullToSettingless.bind.onTouchCancel();
           return;
         }
 
         homeModeSwipe.onTouchStart(event);
+        if (isMainListModeScreen && event.touches.length === 1) {
+          pullToSettingless.bind.onTouchStart(event);
+        } else {
+          pullToSettingless.bind.onTouchCancel();
+        }
       }}
       onTouchMove={(event) => {
         if (isEditableElement(document.activeElement) || isEditableElement(event.target)) {
           homeModeSwipe.onTouchCancel();
+          pullToSettingless.bind.onTouchCancel();
           return;
         }
 
         homeModeSwipe.onTouchMove(event);
+        pullToSettingless.bind.onTouchMove(event);
       }}
-      onTouchEnd={homeModeSwipe.onTouchEnd}
-      onTouchCancel={homeModeSwipe.onTouchCancel}
+      onTouchEnd={() => {
+        homeModeSwipe.onTouchEnd();
+        pullToSettingless.bind.onTouchEnd();
+      }}
+      onTouchCancel={() => {
+        homeModeSwipe.onTouchCancel();
+        pullToSettingless.bind.onTouchCancel();
+      }}
     >
       <AnimatePresence mode="wait" initial={false}>
         {homeMode === 'listless' ? (
@@ -200,7 +239,13 @@ const AppContent = (): JSX.Element => {
               />
             ) : null}
 
-            {lists.length > 0 && !showListOverview && activeList ? <ListScreen key={listScreenKey} list={activeList} /> : null}
+            {lists.length > 0 && !showListOverview && activeList ? (
+              <ListScreen
+                key={listScreenKey}
+                list={activeList}
+                settinglessOpen={showListSettingless}
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -224,6 +269,16 @@ const AppContent = (): JSX.Element => {
         ) : null}
 
         {homeMode === 'timeless' ? <TimelessHomeScreen key="timeless" /> : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showListSettingless ? (
+          <SettinglessScreen
+            onClose={() => {
+              setShowListSettingless(false);
+            }}
+          />
+        ) : null}
       </AnimatePresence>
     </main>
   );

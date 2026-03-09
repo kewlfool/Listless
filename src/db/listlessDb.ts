@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { HomeMode, List, Note, TimeReminder, ViewMode } from '../types/models';
+import type { HomeMode, List, Note, ThemeMode, TimeReminder, ViewMode } from '../types/models';
 import { sortListData } from '../utils/sort';
 import { extractNoteTitle } from '../utils/noteTitle';
 
@@ -133,9 +133,18 @@ export const removeTimeReminderFromDB = async (reminderId: string): Promise<void
 const LIST_VIEW_MODE_KEY = 'viewMode';
 const NOTE_VIEW_MODE_KEY = 'noteViewMode';
 const HOME_MODE_KEY = 'homeMode';
+const THEME_MODE_KEY = 'themeMode';
 
 const parseViewMode = (value: string): ViewMode | null => {
   if (value === 'card' || value === 'list' || value === 'preview') {
+    return value;
+  }
+
+  return null;
+};
+
+const parseThemeMode = (value: string): ThemeMode | null => {
+  if (value === 'light' || value === 'dark') {
     return value;
   }
 
@@ -186,4 +195,17 @@ export const loadHomeMode = async (): Promise<HomeMode | null> => {
 
 export const saveHomeMode = async (mode: HomeMode): Promise<void> => {
   await db.settings.put({ key: HOME_MODE_KEY, value: mode });
+};
+
+export const loadThemeMode = async (): Promise<ThemeMode | null> => {
+  const row = await db.settings.get(THEME_MODE_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseThemeMode(row.value);
+};
+
+export const saveThemeMode = async (mode: ThemeMode): Promise<void> => {
+  await db.settings.put({ key: THEME_MODE_KEY, value: mode });
 };
