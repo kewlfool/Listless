@@ -9,3 +9,4 @@ cordova-app/plugins/
 cordova-app/platforms/
 cordova-app/www/*
 !cordova-app/www/.gitkeep
+.DS_Store
